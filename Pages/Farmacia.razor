@@ -1,0 +1,95 @@
+﻿@page "/farmacia"
+@inject IHospitalService DB
+
+<h3>Farmacia</h3>
+
+<div class="row g-3">
+    <div class="col-md-5">
+        <h5>Inventario</h5>
+        <div class="d-flex gap-1">
+            <input class="form-control" placeholder="Medicamento" @bind="_medName" />
+            <input type="number" class="form-control" placeholder="Stock" @bind-value="_medStock" />
+            <button class="btn btn-primary" @onclick="AgregarMed">Agregar</button>
+        </div>
+
+        <table class="table table-sm mt-2">
+            <thead><tr><th>Medicamento</th><th>Stock</th></tr></thead>
+            <tbody>
+                @foreach (var m in meds)
+                {
+                    <tr><td>@m.Name</td><td>@m.Stock</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="col-md-7">
+        <h5>Dispensar a paciente</h5>
+        <select class="form-select" @bind="_patientId">
+            <option value="">-- Paciente --</option>
+            @foreach (var p in patients)
+            {
+                <option value="@p.Id">@p.FullName (@p.Document)</option>
+            }
+        </select>
+        <div class="d-flex gap-1 mt-2">
+            <select class="form-select" @bind="_medId">
+                <option value="">-- Medicamento --</option>
+                @foreach (var m in meds)
+                {
+                    <option value="@m.Id">@m.Name (Stock: @m.Stock)</option>
+                }
+            </select>
+            <input type="number" class="form-control" placeholder="Cant." @bind-value="_qty" />
+            <button class="btn btn-primary" @onclick="Dispensar" disabled="@(!CanDispense)">Dispensar</button>
+        </div>
+
+        <h6 class="mt-3">Dispensaciones recientes</h6>
+        <table class="table table-sm">
+            <thead><tr><th>Fecha</th><th>Paciente</th><th>Medicamento</th><th>Cant.</th></tr></thead>
+            <tbody>
+                @foreach (var d in dispenses)
+                {
+                    var p = patients.First(x => x.Id == d.PatientId);
+                    var m = meds.First(x => x.Id == d.MedicationId);
+                    <tr><td>@d.Date.ToString("dd/MM/yyyy HH:mm")</td><td>@p.FullName</td><td>@m.Name</td><td>@d.Quantity</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private List<Patient> patients = new();
+    private List<Medication> meds = new();
+    private List<Dispense> dispenses = new();
+
+    private string _medName = ""; private int _medStock = 0;
+    private string _patientId = ""; private string _medId = ""; private int _qty = 1;
+
+    bool CanDispense => Guid.TryParse(_patientId, out _) && Guid.TryParse(_medId, out _) && _qty > 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await DB.EnsureSeedAsync();
+        patients = await DB.GetPatientsAsync();
+        meds = await DB.GetMedicationsAsync();
+        dispenses = await DB.GetDispensesAsync();
+    }
+
+    private async Task AgregarMed()
+    {
+        if (string.IsNullOrWhiteSpace(_medName) || _medStock <= 0) return;
+        await DB.AddMedicationAsync(new Medication { Name = _medName.Trim(), Stock = _medStock });
+        meds = await DB.GetMedicationsAsync();
+        _medName = ""; _medStock = 0;
+    }
+
+    private async Task Dispensar()
+    {
+        await DB.DispenseAsync(Guid.Parse(_patientId), Guid.Parse(_medId), _qty);
+        meds = await DB.GetMedicationsAsync();
+        dispenses = await DB.GetDispensesAsync();
+        _qty = 1;
+    }
+}

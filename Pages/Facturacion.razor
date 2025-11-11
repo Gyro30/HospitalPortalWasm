@@ -1,0 +1,134 @@
+﻿@page "/facturacion"
+@inject IHospitalService DB
+
+<h3>Facturación</h3>
+
+<select class="form-select" @bind="_patientId" @bind:after="OnPatientChanged">
+    <option value="">-- Paciente --</option>
+    @foreach(var p in patients){ <option value="@p.Id">@p.FullName (@p.Document)</option> }
+</select>
+
+@if(selectedPatient is not null){
+  <div class="row g-3 mt-2">
+    <div class="col-md-6">
+      <h6>Selecciona ítems a facturar</h6>
+      <p class="text-muted">Órdenes de laboratorio pendientes</p>
+      @foreach(var o in pendingOrders){
+        var tt = testTypes.First(t=>t.Id==o.TestTypeId);
+        <div class="form-check">
+                    <input class="form-check-input" type="checkbox"
+                           checked="@_selectedOrderIds.Contains(o.Id)"
+                           @onchange="e => ToggleOrder(o.Id, (bool)e.Value)" />
+
+          <label class="form-check-label">@tt.Code - @tt.Name (S/. @tt.Price)</label>
+        </div>
+      }
+      <p class="text-muted mt-2">Dispensaciones de farmacia pendientes</p>
+      @foreach(var d in pendingDispenses){
+        var m = meds.First(x=>x.Id==d.MedicationId);
+        <div class="form-check">
+                    <input class="form-check-input" type="checkbox"
+                           checked="@_selectedDispenseIds.Contains(d.Id)"
+                           @onchange="e => ToggleDispense(d.Id, (bool)e.Value)" />
+
+          <label class="form-check-label">@m.Name x@d.Quantity (S/. @(2.5m*d.Quantity))</label>
+        </div>
+      }
+      <button class="btn btn-primary mt-2" @onclick="CrearFactura" disabled="@(!CanBill)">Crear factura</button>
+    </div>
+
+    <div class="col-md-6">
+      <h6>Facturas del paciente</h6>
+      <table class="table table-sm">
+        <thead><tr><th>Fecha</th><th>N°</th><th>Total</th></tr></thead>
+        <tbody>
+          @foreach(var i in invoices){
+            <tr>
+              <td>@i.Date.ToString("dd/MM/yyyy HH:mm")</td>
+              <td>@i.Id.ToString()[..8]</td>
+              <td>S/. @i.Total</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+@code {
+    private List<Patient> patients = new();
+    private Patient? selectedPatient;
+
+    private List<LabTestType> testTypes = new();
+    private List<LabOrder> allOrders = new();
+    private List<LabOrder> pendingOrders = new();
+
+    private List<Medication> meds = new();
+    private List<Dispense> allDispenses = new();
+    private List<Dispense> pendingDispenses = new();
+
+    private List<Invoice> invoices = new();
+
+    private string _patientId = "";
+    private HashSet<Guid> _selectedOrderIds = new();
+    private HashSet<Guid> _selectedDispenseIds = new();
+
+    bool CanBill => selectedPatient != null && (_selectedOrderIds.Any() || _selectedDispenseIds.Any());
+
+    protected override async Task OnInitializedAsync()
+    {
+        await DB.EnsureSeedAsync();
+        patients = await DB.GetPatientsAsync();
+        testTypes = await DB.GetTestTypesAsync();
+        meds = await DB.GetMedicationsAsync();
+        allOrders = await DB.GetLabOrdersAsync();
+        allDispenses = await DB.GetDispensesAsync();
+        invoices = await DB.GetInvoicesAsync();
+    }
+    void ToggleOrder(Guid id, bool isChecked)
+    {
+        if (isChecked) _selectedOrderIds.Add(id);
+        else _selectedOrderIds.Remove(id);
+    }
+
+    void ToggleDispense(Guid id, bool isChecked)
+    {
+        if (isChecked) _selectedDispenseIds.Add(id);
+        else _selectedDispenseIds.Remove(id);
+    }
+
+
+    private async Task OnPatientChanged()
+    {
+        if (!Guid.TryParse(_patientId, out var id))
+        {
+            selectedPatient = null;
+            pendingOrders = new(); pendingDispenses = new();
+            return;
+        }
+
+        selectedPatient = patients.FirstOrDefault(p => p.Id == id);
+
+        allOrders = await DB.GetLabOrdersAsync();
+        allDispenses = await DB.GetDispensesAsync();
+        invoices = await DB.GetInvoicesAsync();
+
+        var billedOrderIds = invoices.Where(i => i.PatientId == id)
+            .SelectMany(i => i.Items.Where(x => x.Kind == "LAB").Select(x => x.RefId)).ToHashSet();
+
+        var billedDispenseIds = invoices.Where(i => i.PatientId == id)
+            .SelectMany(i => i.Items.Where(x => x.Kind == "FARM").Select(x => x.RefId)).ToHashSet();
+
+        pendingOrders = allOrders.Where(o => o.PatientId == id && !billedOrderIds.Contains(o.Id)).ToList();
+        pendingDispenses = allDispenses.Where(d => d.PatientId == id && !billedDispenseIds.Contains(d.Id)).ToList();
+    }
+
+    private async Task CrearFactura()
+    {
+        if (selectedPatient is null) return;
+        await DB.CreateInvoiceAsync(selectedPatient.Id, _selectedOrderIds, _selectedDispenseIds);
+        _selectedOrderIds.Clear(); _selectedDispenseIds.Clear();
+        await OnPatientChanged(); // refresca listas
+        invoices = await DB.GetInvoicesAsync();
+    }
+}

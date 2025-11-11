@@ -1,0 +1,43 @@
+﻿@page "/historia"
+@inject IHospitalService DB
+
+<h3>Historia clínica</h3>
+<select class="form-select" @bind="_patientId" @bind:after="Load">
+    <option value="">-- Paciente --</option>
+    @foreach (var p in patients)
+    {
+        <option value="@p.Id">@p.FullName (@p.Document)</option>
+    }
+</select>
+
+@if (history.Any())
+{
+    <ul class="list-group mt-3">
+        @foreach (var h in history)
+        {
+            <li class="list-group-item d-flex justify-content-between">
+                <span>@h.text</span>
+                <small class="text-muted">@h.when.ToString("dd/MM/yyyy HH:mm")</small>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<Patient> patients = new();
+    private string _patientId = "";
+    private List<(DateTime when, string text)> history = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await DB.EnsureSeedAsync();
+        patients = await DB.GetPatientsAsync();
+    }
+
+    private async Task Load()
+    {
+        history = Guid.TryParse(_patientId, out var id)
+            ? await DB.GetHistoryAsync(id)
+            : new();
+    }
+}

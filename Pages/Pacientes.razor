@@ -1,0 +1,71 @@
+﻿@page "/pacientes"
+@inject IHospitalService DB
+
+<h3>Pacientes (HIS)</h3>
+
+<input @bind="term" placeholder="Buscar por nombre o documento" />
+<button @onclick="Buscar">Buscar</button>
+
+<EditForm Model="nuevo" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+    <div class="mb-2">
+        <label>Documento</label><br />
+        <InputText @bind-Value="nuevo.Document" />
+    </div>
+    <div class="mb-2">
+        <label>Nombre completo</label><br />
+        <InputText @bind-Value="nuevo.FullName" />
+    </div>
+    <div class="mb-2">
+        <label>Fecha de nacimiento</label><br />
+        <InputDate @bind-Value="nuevo.BirthDate" />
+    </div>
+    <button type="submit">Agregar</button>
+</EditForm>
+
+<table class="table">
+    <thead>
+        <tr><th>Documento</th><th>Nombre</th><th>Nacimiento</th></tr>
+    </thead>
+    <tbody>
+        @foreach (var p in lista)
+        {
+            <tr>
+                <td>@p.Document</td>
+                <td>@p.FullName</td>
+                <td>@(p.BirthDate?.ToShortDateString())</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private string term = "";
+    private List<Patient> lista = new();
+    private Patient nuevo = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await DB.EnsureSeedAsync();
+        lista = await DB.GetPatientsAsync();
+    }
+
+    private async Task Buscar()
+    {
+        var all = await DB.GetPatientsAsync();
+        lista = string.IsNullOrWhiteSpace(term)
+            ? all
+            : all.Where(p => (p.FullName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+                          || (p.Document?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)).ToList();
+    }
+
+    private async Task Guardar()
+    {
+        if (string.IsNullOrWhiteSpace(nuevo.FullName) || string.IsNullOrWhiteSpace(nuevo.Document)) return;
+        await DB.AddPatientAsync(nuevo);
+        nuevo = new Patient();
+        lista = await DB.GetPatientsAsync();
+        term = "";
+    }
+}
+
