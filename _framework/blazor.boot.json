@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "HospitalPortalWasm",
   "resources": {
-    "hash": "sha256-xG88GYpvehW1FHKIwJ1wkiGUiVZQrf6zrgFVufoPa0U=",
+    "hash": "sha256-4DAt2J/cXww39s28JFE8Ww+O+6Zr8xVNT5d1w/AjLYo=",
     "jsModuleNative": {
       "dotnet.native.js": "sha256-9Fzd5We95Rp03dEKIAbYjPDR3eWyLbmjMlYStvxyiok="
     },
@@ -61,7 +61,7 @@
       "System.Threading.wasm": "sha256-nDQEhXyEi1hXuAlcdl+JUHT1UdazXnoLqzw0gnLqOXM=",
       "System.wasm": "sha256-PUc71Jd5nvz5F65sAd0C3ZORcUzYK2JSfSDmE+Drn0Q=",
       "System.Private.CoreLib.wasm": "sha256-Tmbnf1qB8Pk8TxS1Pe6VIibATxWgBJZUcu399rzQo/M=",
-      "HospitalPortalWasm.wasm": "sha256-EqNyBAu61zpqFId2WwdbPUhta2RuekaOAziDeVRzwsI="
+      "HospitalPortalWasm.wasm": "sha256-cSZZkBsEpGhEhKqjyPRJ5uJbgNSarBhyRlObW4jUDtM="
     }
   },
   "cacheBootResources": true,
