@@ -1,0 +1,36 @@
+name: Deploy Blazor WASM to GitHub Pages
+
+on:
+  push:
+    branches: [ "master" ]   
+
+permissions:
+  contents: write
+
+env:
+  PROJECT_FILE: ./HospitalPortalWasm.csproj
+  REPO_NAME: HospitalPortalWasm  
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish
+        run: dotnet publish $PROJECT_FILE -c Release -o publish
+
+      - name: Fix base href for GitHub Pages
+        run: |
+          sed -i 's|<base href="/" />|<base href="/'"$REPO_NAME"'/"/>|' publish/wwwroot/index.html || true
+          sed -i 's|<base href="/" >|<base href="/'"$REPO_NAME"'/" >|' publish/wwwroot/index.html || true
+          cp publish/wwwroot/index.html publish/wwwroot/404.html
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: publish/wwwroot
